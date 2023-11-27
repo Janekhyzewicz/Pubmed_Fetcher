@@ -1,0 +1,109 @@
+#Protocole ici: https://www.kaggle.com/code/binitagiri/extract-data-from-pubmed-using-python
+#Pour les barres de progression: https://builtin.com/software-engineering-perspectives/python-progress-bar
+
+import pandas as pd
+from metapub import PubMedFetcher
+#Importer la barre de progression. 12 sec par recherche
+from progress.bar import Bar
+
+#Definir les mots clés à sélectionner dans la recherche:
+keyword = "acta1, myopathy"
+#Definir combien d'articles max on veut récupérer
+num_of_articles = 10
+
+fetch = PubMedFetcher()
+
+Bar('Processing...').max = num_of_articles  # Définir le nombre total d'articles pour la barre de progression
+
+#récuperer les PMID (Pubmed identifiers)
+pmids = fetch.pmids_for_query(keyword, retmax = num_of_articles)
+Bar('Processing...').next() 
+
+#récupérer les articles
+articles = {}
+for pmid in pmids:
+    articles[pmid] = fetch.article_by_pmid(pmid) 
+
+# Récuperer les titres des articles
+titles = {}
+for pmid in pmids:
+    titles[pmid] = fetch.article_by_pmid(pmid).title
+Title = pd.DataFrame(list(titles.items()),columns = ['pmid','Title'])
+
+# Récuperer le type d'article 
+pubtype = {}
+for pmid in pmids:
+    pubtype[pmid] = fetch.article_by_pmid(pmid).pubmed_type
+Type = pd.DataFrame(list(pubtype.items()),columns = ['pmid','Type'])
+
+# Récuperer les abstracts des articles 
+abstracts = {}
+for pmid in pmids:
+    abstracts[pmid] = fetch.article_by_pmid(pmid).abstract
+Abstract = pd.DataFrame(list(abstracts.items()),columns = ['pmid','Abstract'])
+
+# Récuperer les noms des auteurs
+authors = {}
+for pmid in pmids:
+    authors[pmid] = fetch.article_by_pmid(pmid).authors
+Author = pd.DataFrame(list(authors.items()),columns = ['pmid','Author'])
+
+# Récuperer les années:
+years = {}
+for pmid in pmids:
+    years[pmid] = fetch.article_by_pmid(pmid).year
+Year = pd.DataFrame(list(years.items()),columns = ['pmid','Year'])
+
+# Récuperer les volumes des articles:
+volumes = {}
+for pmid in pmids:
+    volumes[pmid] = fetch.article_by_pmid(pmid).volume
+Volume = pd.DataFrame(list(volumes.items()),columns = ['pmid','Volume'])
+
+# Récuperer les issues des articles 
+issues = {}
+for pmid in pmids:
+    issues[pmid] = fetch.article_by_pmid(pmid).issue
+Issue = pd.DataFrame(list(issues.items()),columns = ['pmid','Issue'])
+
+# Récupérer les journaux
+journals = {}
+for pmid in pmids:
+    journals[pmid] = fetch.article_by_pmid(pmid).journal
+Journal = pd.DataFrame(list(journals.items()),columns = ['pmid','Journal'])
+
+# Récuperer les citations
+citations = {}
+for pmid in pmids:
+    citations[pmid] = fetch.article_by_pmid(pmid).citation
+Citation = pd.DataFrame(list(citations.items()),columns = ['pmid','Citation'])
+
+# Récuperer les chemicals
+chemicals = {}
+for pmid in pmids:
+    citations[pmid] = fetch.article_by_pmid(pmid).chemicals
+Chemicals = pd.DataFrame(list(citations.items()),columns = ['pmid','Chemicals'])
+
+# Récuperer les liens
+links={}
+for pmid in pmids:
+    links[pmid] = "https://pubmed.ncbi.nlm.nih.gov/"+pmid+"/"
+Link = pd.DataFrame(list(links.items()),columns = ['pmid','Link'])
+Bar('Processing...').next(len(pmids)) 
+
+# Tout mettre sous la forme d'un tableau 
+#data_frames = [Title,Type,Abstract,Author,Year,Volume,Issue,Journal,Citation,Link]
+data_frames = [Title,Author,Abstract,Year,Journal,Link,Chemicals]
+from functools import reduce
+df_merged = reduce(lambda  left,right: pd.merge(left,right,on=['pmid'], how='outer'), data_frames)
+
+#Récupérer seulement le dernier auteur
+dernier = lambda x: x[-1]
+df_merged = df_merged.assign(last_author=df_merged['Author'].apply(dernier))
+#Mettre la colonne dernier auteur juste après la liste des auteurs
+df_merged = df_merged.assign(last_author=df_merged['Author'].apply(dernier))
+df_merged = df_merged.reindex(columns=['Title', 'Author', 'last_author', 'Abstract', 'Year', 'Journal', 'Link', 'Chemicals'])
+
+# Enregistrer sous la forme d'un tableau:
+df_merged.to_csv(r'C:\Users\jhyzewicz\OneDrive - Institut\Documents\Janek\Laboratoire\2018.09 UEVE Genethon\UEVE\Python\2023.09.27 Pubmed Fetcher\pubmed_{}.csv'.format(keyword), sep = ';')
+
